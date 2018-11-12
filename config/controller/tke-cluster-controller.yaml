@@ -1,0 +1,36 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: tke-cluster-controller
+  namespace: clusterapi
+  labels:
+    app: tke-cluster-controller
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: tke-cluster-controller
+    spec:
+      containers:
+      - name: controller-manager
+        image: ccr.ccs.tencentyun.com/ccs-dev/tke-cluster-controller:0.5
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 100m
+            memory: 20Mi
+          limits:
+            cpu: 200m
+            memory: 300Mi
+        env:
+        - name: SecretId
+          valueFrom:
+            secretKeyRef:
+              name: tencent-cloud-api-secret
+              key: SecretId
+        - name: SecretKey
+          valueFrom:
+            secretKeyRef:
+              name: tencent-cloud-api-secret
+              key: SecretKey

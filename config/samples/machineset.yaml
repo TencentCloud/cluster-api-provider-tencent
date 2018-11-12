@@ -1,0 +1,103 @@
+apiVersion: "cluster.k8s.io/v1alpha1"
+kind: MachineSet
+metadata:
+  name: test-machineset-1
+spec:
+  replicas: 2
+  minReadySeconds: 0
+  selector:
+    matchLabels:
+      node-type: worker-node
+  template:
+    metadata:
+      generateName: tke-node-master
+      labels:
+        node-type: worker-node
+    spec:
+        providerConfig:
+          value:
+            apiVersion: "tkeproviderconfig/v1alpha1"
+            kind: "TKEMachineProviderConfig"
+            clusterId: "cls-jnfpjkrd"
+            zoneId: "800001"
+            cpu: 1
+            mem: 2
+            bandwidthType: "PayByTraffic"
+            bandwidth: 1
+            subnetId: "subnet-nzi3a453"
+            storageSize: 50
+            rootSize: 20
+            goodsNum: 1
+            password: "123456789!"
+            isVpcGateway: 0
+            wanIp: 1
+            osName: "ubuntu16.04.1 LTSx86_64"
+        versions:
+          kubelet: 1.9.4
+          controlPlane: 1.9.4
+        roles:
+        - Master
+#items:
+#- apiVersion: "cluster.k8s.io/v1alpha1"
+#  kind: Machine
+#  metadata:
+#    generateName: vs-master-
+#    labels:
+#      set: master
+#  spec:
+#    providerConfig:
+#      value:
+#        apiVersion: "vsphereproviderconfig/v1alpha1"
+#        kind: "VsphereMachineProviderConfig"
+#        vsphereMachine: "standard-master"
+#        machineVariables:
+#          datacenter: ""
+#          datastore: ""
+#          resource_pool: ""
+#          network: ""
+#          num_cpus: "2"
+#          memory: "2048"
+#          vm_template: ""
+#          disk_label: ""
+#          disk_size: ""
+#          virtual_machine_domain: ""
+#    versions:
+#      kubelet: 1.10.1
+#      controlPlane: 1.10.1
+#    roles:
+#    - Master
+#
+#apiVersion: "cluster.k8s.io/v1alpha1"
+#kind: MachineSet
+#metadata:
+#  name: test-machineset-1
+#spec:
+#  replicas: 2
+#  selector:
+#    matchLabels:
+#      node-type: worker-node
+#  template:
+#    metadata:
+#      labels:
+#        node-type: worker-node
+#    spec:
+#      providerConfig:
+#        value:
+#          apiVersion: "vsphereproviderconfig/v1alpha1"
+#          kind: "VsphereMachineProviderConfig"
+#          vsphereMachine: "standard-node"
+#          machineVariables:
+#            datacenter: ""
+#            datastore: ""
+#            resource_pool: ""
+#            network: ""
+#            num_cpus: "2"
+#            memory: "2048"
+#            vm_template: ""
+#            disk_label: ""
+#            disk_size: ""
+#            virtual_machine_domain: ""
+#      versions:
+#        kubelet: 1.10.1
+#      roles:
+#      - Node

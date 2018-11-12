@@ -1,0 +1,25 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: clusterapi-generic-controller
+  namespace: clusterapi
+  labels:
+    app: clusterapi-generic-controller
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: clusterapi-generic-controller
+    spec:
+      containers:
+      - name: controller-manager
+        image: ccr.ccs.tencentyun.com/ccs-dev/clusterapi-generic-controller:0.5
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 100m
+            memory: 20Mi
+          limits:
+            cpu: 200m
+            memory: 300Mi

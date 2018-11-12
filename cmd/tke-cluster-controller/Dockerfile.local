@@ -1,0 +1,6 @@
+#FROM debian:stretch-slim
+#RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+FROM scratch
+ADD config/cert/ca-certificates.crt /etc/ssl/certs/
+COPY output/bin/tke-cluster-controller /
+CMD ["/tke-cluster-controller", "--logtostderr"]

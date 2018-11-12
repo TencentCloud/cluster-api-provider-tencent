@@ -1,0 +1,4 @@
+FROM scratch
+ADD config/cert/ca-certificates.crt /etc/ssl/certs/
+COPY output/bin/clusterapi-generic-controller /
+CMD ["/clusterapi-generic-controller", "--logtostderr"]
