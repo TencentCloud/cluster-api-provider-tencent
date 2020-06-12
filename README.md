@@ -52,7 +52,7 @@ machinedeployments.cluster.k8s.io       1m
 
 #### 2. prepare and install secret
 
-There's a templet yaml file for the secret:
+There's a template yaml file for the secret:
 ```
 # cat config/yaml/tencent-cloud-api-secret.yaml 
 apiVersion: v1
