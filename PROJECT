@@ -1,0 +1,33 @@
+domain: cluster.x-k8s.io
+layout:
+- go.kubebuilder.io/v3
+projectName: cluster-api-provider-tencent
+repo: github.com/spectrolcoud/cluster-api-provider-tencent
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: TKECluster
+  path: github.com/spectrolcoud/cluster-api-provider-tencent/api/v1alpha4
+  version: v1alpha4
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: TKEManagedMachinePool
+  path: github.com/spectrolcoud/cluster-api-provider-tencent/api/v1alpha4
+  version: v1alpha4
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+version: "3"

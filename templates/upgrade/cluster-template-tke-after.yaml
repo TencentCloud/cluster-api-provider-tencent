@@ -1,0 +1,57 @@
+---
+apiVersion: cluster.x-k8s.io/v1alpha4
+kind: Cluster
+metadata:
+  name: "abc"
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["192.168.0.0/16"]
+  infrastructureRef:
+    kind: TKECluster
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+    name: "abc-tke-cluster"
+  controlPlaneRef:
+    kind: TKECluster
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+    name: "abc-tke-cluster"
+---
+kind: TKECluster
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+metadata:
+  name: "abc-tke-cluster"
+spec:
+  clusterName: foobar
+  region: ap-mumbai
+  clusterVersion: 1.12.8
+  vpcID: vpc-ouipya6w
+
+---
+apiVersion: cluster.x-k8s.io/v1alpha4
+kind: MachinePool
+metadata:
+  name: "abc-pool-0"
+spec:
+  clusterName: "abc"
+  replicas: 3
+  template:
+    spec:
+      clusterName: "abc"
+      bootstrap:
+        dataSecretName: ""
+      infrastructureRef:
+        name: "abc-pool-0"
+        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+        kind: TKEManagedMachinePool
+
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+kind: TKEManagedMachinePool
+metadata:
+  name: "abc-pool-0"
+spec:
+  maxSize: 5
+  minSize: 0
+  instanceType: S3.SMALL1
+  securityGroups:
+    - "sg-hnpkqgjk"
