@@ -34,8 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	infrastructurev1alpha4 "github.com/spectrolcoud/cluster-api-provider-tencent/api/v1alpha4"
-	"github.com/spectrolcoud/cluster-api-provider-tencent/controllers"
+	infrastructurev1alpha4 "github.com/TencentCloud/cluster-api-provider-tencent/api/v1alpha4"
+	"github.com/TencentCloud/cluster-api-provider-tencent/controllers"
 	//+kubebuilder:scaffold:imports
 )
 

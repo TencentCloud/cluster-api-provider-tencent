@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/TencentCloud/cluster-api-provider-tencent/pkg/cloud/scope"
 	"github.com/pkg/errors"
-	"github.com/spectrolcoud/cluster-api-provider-tencent/pkg/cloud/scope"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	tke "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tke/v20180525"
