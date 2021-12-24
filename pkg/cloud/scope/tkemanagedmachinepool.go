@@ -3,9 +3,9 @@ package scope
 import (
 	"context"
 
+	"github.com/TencentCloud/cluster-api-provider-tencent/api/v1alpha4"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"github.com/spectrolcoud/cluster-api-provider-tencent/api/v1alpha4"
 	"k8s.io/klog/v2/klogr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
 	exp "sigs.k8s.io/cluster-api/exp/api/v1alpha4"

@@ -19,9 +19,9 @@ package controllers
 import (
 	"context"
 
+	"github.com/TencentCloud/cluster-api-provider-tencent/pkg/cloud/scope"
+	"github.com/TencentCloud/cluster-api-provider-tencent/pkg/cloud/services/tke"
 	"github.com/pkg/errors"
-	"github.com/spectrolcoud/cluster-api-provider-tencent/pkg/cloud/scope"
-	"github.com/spectrolcoud/cluster-api-provider-tencent/pkg/cloud/services/tke"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,7 +36,7 @@ import (
 	logger "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrastructurev1alpha4 "github.com/spectrolcoud/cluster-api-provider-tencent/api/v1alpha4"
+	infrastructurev1alpha4 "github.com/TencentCloud/cluster-api-provider-tencent/api/v1alpha4"
 )
 
 // TKEManagedMachinePoolReconciler reconciles a TKEManagedMachinePool object

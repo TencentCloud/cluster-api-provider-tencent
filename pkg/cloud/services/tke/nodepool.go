@@ -5,10 +5,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/TencentCloud/cluster-api-provider-tencent/pkg/cache"
+	"github.com/TencentCloud/cluster-api-provider-tencent/pkg/cloud/scope"
+	"github.com/TencentCloud/cluster-api-provider-tencent/pkg/util"
 	"github.com/pkg/errors"
-	"github.com/spectrolcoud/cluster-api-provider-tencent/pkg/cache"
-	"github.com/spectrolcoud/cluster-api-provider-tencent/pkg/cloud/scope"
-	"github.com/spectrolcoud/cluster-api-provider-tencent/pkg/util"
 	as "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/as/v20180419"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"

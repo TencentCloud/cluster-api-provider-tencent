@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 
+	infrastructurev1alpha4 "github.com/TencentCloud/cluster-api-provider-tencent/api/v1alpha4"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	infrastructurev1alpha4 "github.com/spectrolcoud/cluster-api-provider-tencent/api/v1alpha4"
 	tke "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tke/v20180525"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

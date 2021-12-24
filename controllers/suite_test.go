@@ -30,7 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	infrastructurev1alpha4 "github.com/spectrolcoud/cluster-api-provider-tencent/api/v1alpha4"
+	infrastructurev1alpha4 "github.com/TencentCloud/cluster-api-provider-tencent/api/v1alpha4"
 	//+kubebuilder:scaffold:imports
 )
 

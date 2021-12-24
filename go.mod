@@ -1,4 +1,4 @@
-module github.com/spectrolcoud/cluster-api-provider-tencent
+module github.com/TencentCloud/cluster-api-provider-tencent
 
 go 1.16
 
@@ -22,5 +22,3 @@ require (
 	sigs.k8s.io/cluster-api v0.4.3
 	sigs.k8s.io/controller-runtime v0.10.2
 )
-
-replace github.com/spectrolcoud/cluster-api-provider-tencent/pkg/cloud/scope => ./pkg/cloud/scope
