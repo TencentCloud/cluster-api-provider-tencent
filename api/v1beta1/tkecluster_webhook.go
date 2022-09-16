@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha4
+package v1beta1
 
 import (
 	"fmt"
@@ -38,7 +38,7 @@ func (r *TKECluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1alpha4-tkecluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=tkeclusters,verbs=create;update,versions=v1alpha4,name=mtkecluster.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-tkecluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=tkeclusters,verbs=create;update,versions=v1beta1,name=mtkecluster.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &TKECluster{}
 
@@ -53,7 +53,7 @@ func (r *TKECluster) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1alpha4-tkecluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=tkeclusters,verbs=create;update,versions=v1alpha4,name=vtkecluster.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-tkecluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=tkeclusters,verbs=create;update,versions=v1beta1,name=vtkecluster.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &TKECluster{}
 

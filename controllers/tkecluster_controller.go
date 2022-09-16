@@ -32,7 +32,7 @@ import (
 	logger "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrastructurev1alpha4 "github.com/TencentCloud/cluster-api-provider-tencent/api/v1alpha4"
+	infrastructurev1beta1 "github.com/TencentCloud/cluster-api-provider-tencent/api/v1beta1"
 )
 
 // TKEClusterReconciler reconciles a TKECluster object
@@ -62,7 +62,7 @@ func (r *TKEClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	log := logger.FromContext(ctx)
 
 	// TODO(user): your logic here
-	tkeCluster := &infrastructurev1alpha4.TKECluster{}
+	tkeCluster := &infrastructurev1beta1.TKECluster{}
 
 	err := r.Get(ctx, req.NamespacedName, tkeCluster)
 	if err != nil {
@@ -114,7 +114,7 @@ func (r *TKEClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 }
 
 func reconcileNormal(ctx context.Context, clusterScope *scope.TKEClusterScope) (ctrl.Result, error) {
-	controllerutil.AddFinalizer(clusterScope.TKECluster, infrastructurev1alpha4.TKEClusterFinalizer)
+	controllerutil.AddFinalizer(clusterScope.TKECluster, infrastructurev1beta1.TKEClusterFinalizer)
 	if err := clusterScope.PatchObject(); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -124,10 +124,15 @@ func reconcileNormal(ctx context.Context, clusterScope *scope.TKEClusterScope) (
 		return ctrl.Result{}, err
 	}
 
-	err = tkeService.ReconcileCluster(clusterScope)
+	res, err := tkeService.ReconcileCluster(clusterScope)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "unable to reconcile tke cluster")
 	}
+
+	if res != nil {
+		return *res, errors.Wrap(err, "unable to reconcile tke cluster")
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -142,7 +147,7 @@ func reconcileDelete(ctx context.Context, clusterScope *scope.TKEClusterScope) (
 		return ctrl.Result{}, errors.Wrap(err, "unable to reconcile tke cluster")
 	}
 
-	controllerutil.RemoveFinalizer(clusterScope.TKECluster, infrastructurev1alpha4.TKEClusterFinalizer)
+	controllerutil.RemoveFinalizer(clusterScope.TKECluster, infrastructurev1beta1.TKEClusterFinalizer)
 
 	return ctrl.Result{}, nil
 }
@@ -150,6 +155,6 @@ func reconcileDelete(ctx context.Context, clusterScope *scope.TKEClusterScope) (
 // SetupWithManager sets up the controller with the Manager.
 func (r *TKEClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&infrastructurev1alpha4.TKECluster{}).
+		For(&infrastructurev1beta1.TKECluster{}).
 		Complete(r)
 }

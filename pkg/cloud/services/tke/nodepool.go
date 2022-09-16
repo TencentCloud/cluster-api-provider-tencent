@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
+	infrastructurev1beta1 "github.com/TencentCloud/cluster-api-provider-tencent/api/v1beta1"
 	"github.com/TencentCloud/cluster-api-provider-tencent/pkg/cache"
 	"github.com/TencentCloud/cluster-api-provider-tencent/pkg/cloud/scope"
 	"github.com/TencentCloud/cluster-api-provider-tencent/pkg/util"
@@ -15,6 +17,8 @@ import (
 	tke "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tke/v20180525"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 	"k8s.io/utils/pointer"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 )
 
 type NodePoolService struct {
@@ -24,6 +28,15 @@ type NodePoolService struct {
 	asClient  *as.Client
 	cvmClient *cvm.Client
 }
+
+const (
+	Init                = "INIT"
+	Running             = "RUNNING"
+	Successful          = "SUCCESSFUL"
+	PartiallySuccessful = "PARTIALLY_SUCCESSFUL"
+	Failed              = "FAILED"
+	Cancelled           = "CANCELLED"
+)
 
 func NewNodePoolService(scope *scope.TKEManagedMachinePoolScope) (*NodePoolService, error) {
 	service := &NodePoolService{
@@ -72,11 +85,15 @@ func NewNodePoolService(scope *scope.TKEManagedMachinePoolScope) (*NodePoolServi
 func (s *NodePoolService) ReconcileNodePool() error {
 	s.scope.Info("begin node pool reconcile")
 
+	s.scope.Info("set nodepool explicitly not ready")
+	s.scope.SetNotReady()
+
 	describeReq := tke.NewDescribeClusterNodePoolsRequest()
 	describeReq.ClusterId = pointer.StringPtr(s.scope.TKECluster.Spec.ClusterID)
 
 	describeResp, err := s.tkeClient.DescribeClusterNodePools(describeReq)
 	if err != nil {
+		s.scope.Error(err, "unable to describe node pools")
 		return errors.Wrap(err, "unable to describe node pools")
 	}
 
@@ -131,15 +148,136 @@ func (s *NodePoolService) ReconcileNodePool() error {
 
 		req.EnableAutoscale = pointer.BoolPtr(false)
 
-		if s.scope.ManagedMachinePool.Spec.ImageID != "" {
-			req.NodePoolOs = pointer.StringPtr(s.scope.ManagedMachinePool.Spec.ImageID)
+		if s.scope.ManagedMachinePool.Spec.OSName != "" {
+			req.NodePoolOs = pointer.StringPtr(s.scope.ManagedMachinePool.Spec.OSName)
+		}
+
+		if req.NodePoolOs == nil {
+			req.NodePoolOs = pointer.StringPtr(s.scope.TKECluster.Spec.OSName)
+		}
+
+		var securityGroups []string
+
+		describeSecurityGroupReq := vpc.NewDescribeSecurityGroupsRequest()
+		describeSecurityGroupReq.Filters = []*vpc.Filter{
+			{
+				Name:   pointer.String("security-group-name"),
+				Values: []*string{s.scope.WorkerPoolSecurityGroupName()},
+			},
+		}
+
+		describeSecurityGroupsResp, err := s.vpcClient.DescribeSecurityGroups(describeSecurityGroupReq)
+		if err != nil {
+			return errors.Wrap(err, "unable to describe security groups")
+		}
+
+		if len(describeSecurityGroupsResp.Response.SecurityGroupSet) == 0 {
+			s.scope.V(0).Info("security group not found creating")
+			describeVPCReq := vpc.NewDescribeVpcsRequest()
+			describeVPCReq.VpcIds = []*string{
+				pointer.String(s.scope.TKECluster.Spec.VPCID),
+			}
+
+			describeVPCResp, err := s.vpcClient.DescribeVpcs(describeVPCReq)
+			if err != nil {
+				return err
+			}
+
+			if len(describeVPCResp.Response.VpcSet) == 0 {
+				return errors.New(fmt.Sprintf("unable to get vpc: %s", s.scope.TKECluster.Spec.VPCID))
+			}
+
+			createSecurityGroupReq := vpc.NewCreateSecurityGroupWithPoliciesRequest()
+			createSecurityGroupReq.GroupName = s.scope.WorkerPoolSecurityGroupName()
+			createSecurityGroupReq.GroupDescription = pointer.String(fmt.Sprintf("worker pool security group"))
+			createSecurityGroupReq.SecurityGroupPolicySet = &vpc.SecurityGroupPolicySet{
+				Egress: []*vpc.SecurityGroupPolicy{
+					{
+						PolicyIndex:       pointer.Int64(1),
+						Protocol:          pointer.String("ALL"),
+						Port:              pointer.String("all"),
+						CidrBlock:         pointer.String("0.0.0.0/0"),
+						Action:            pointer.String("ACCEPT"),
+						PolicyDescription: pointer.String("allow all egress"),
+					},
+				},
+				Ingress: []*vpc.SecurityGroupPolicy{
+					{
+						PolicyIndex:       pointer.Int64(1),
+						Protocol:          pointer.String("ICMP"),
+						Port:              pointer.String("all"),
+						CidrBlock:         pointer.String("0.0.0.0/0"),
+						Action:            pointer.String("ACCEPT"),
+						PolicyDescription: pointer.String("allow ICMP"),
+					},
+					{
+						PolicyIndex:       pointer.Int64(2),
+						Protocol:          pointer.String("TCP"),
+						Port:              pointer.String("22"),
+						CidrBlock:         pointer.String("0.0.0.0/0"),
+						Action:            pointer.String("ACCEPT"),
+						PolicyDescription: pointer.String("allow ssh on worker instances"),
+					},
+					{
+						PolicyIndex:       pointer.Int64(3),
+						Protocol:          pointer.String("TCP"),
+						Port:              pointer.String("30000-32768"),
+						CidrBlock:         pointer.String("0.0.0.0/0"),
+						Action:            pointer.String("ACCEPT"),
+						PolicyDescription: pointer.String("nodeport services"),
+					},
+					{
+						PolicyIndex:       pointer.Int64(4),
+						Protocol:          pointer.String("UDP"),
+						Port:              pointer.String("30000-32768"),
+						CidrBlock:         pointer.String("0.0.0.0/0"),
+						Action:            pointer.String("ACCEPT"),
+						PolicyDescription: pointer.String("nodeport services"),
+					},
+					{
+						PolicyIndex:       pointer.Int64(5),
+						Protocol:          pointer.String("TCP"),
+						Port:              pointer.String("all"),
+						CidrBlock:         describeVPCResp.Response.VpcSet[0].CidrBlock,
+						Action:            pointer.String("ACCEPT"),
+						PolicyDescription: pointer.String("vpc cidr"),
+					},
+					{
+						PolicyIndex:       pointer.Int64(6),
+						Protocol:          pointer.String("ALL"),
+						Port:              pointer.String("all"),
+						CidrBlock:         pointer.String("192.168.0.0/16"),
+						Action:            pointer.String("ACCEPT"),
+						PolicyDescription: pointer.String("service cidr"),
+					},
+				},
+			}
+
+			createSecurityGroupResp, err := s.vpcClient.CreateSecurityGroupWithPolicies(createSecurityGroupReq)
+			if err != nil {
+				return errors.Wrap(err, "unable to create worker security group")
+			}
+
+			securityGroups = append(securityGroups, *createSecurityGroupResp.Response.SecurityGroup.SecurityGroupId)
+		}
+
+		for _, securityGroup := range s.scope.ManagedMachinePool.Spec.SecurityGroups {
+			securityGroups = append(securityGroups, securityGroup)
 		}
 
 		req.InstanceAdvancedSettings = &tke.InstanceAdvancedSettings{}
-		// {"InstanceType":"S3.SMALL1","SecurityGroupIds":["sg-hnpkqgjk"]}
-		req.LaunchConfigurePara = common.StringPtr(fmt.Sprintf(`{"InstanceType":"%s","SecurityGroupIds":["%s"]}`,
-			s.scope.ManagedMachinePool.Spec.InstanceType,
-			strings.Join(s.scope.ManagedMachinePool.Spec.SecurityGroups, `","`)))
+		if len(s.scope.ManagedMachinePool.Spec.KeyIDs) == 0 {
+			// {"InstanceType":"S3.SMALL1","SecurityGroupIds":["sg-hnpkqgjk"]}
+			req.LaunchConfigurePara = common.StringPtr(fmt.Sprintf(`{"InstanceType":"%s","SecurityGroupIds":["%s"]}`,
+				s.scope.ManagedMachinePool.Spec.InstanceType,
+				strings.Join(securityGroups, `","`)))
+		} else {
+			// {"InstanceType":"S3.SMALL1","SecurityGroupIds":["sg-hnpkqgjk"]}
+			req.LaunchConfigurePara = common.StringPtr(fmt.Sprintf(`{"InstanceType":"%s","SecurityGroupIds":["%s"],"LoginSettings":{"KeyIds":["%s"]}}`,
+				s.scope.ManagedMachinePool.Spec.InstanceType,
+				strings.Join(securityGroups, `","`),
+				strings.Join(s.scope.ManagedMachinePool.Spec.KeyIDs, `","`)))
+		}
 
 		s.scope.Info("begin creating cluster node pool")
 		resp, err := s.tkeClient.CreateClusterNodePool(req)
@@ -161,6 +299,52 @@ func (s *NodePoolService) ReconcileNodePool() error {
 
 	s.scope.Info("pool status", "image", *existingNodePool.ImageId, "os", *existingNodePool.NodePoolOs, "status", *existingNodePool.LifeState)
 
+	// Describe Auto Scaling Activity logs
+	describeAutoScalingReq := as.NewDescribeAutoScalingActivitiesRequest()
+	describeAutoScalingReq.Filters = append(describeAutoScalingReq.Filters, &as.Filter{
+		Name: common.StringPtr("auto-scaling-group-id"),
+		Values: []*string{
+			existingNodePool.AutoscalingGroupId,
+		},
+	})
+
+	describeAutoScalingRes, err := s.asClient.DescribeAutoScalingActivities(describeAutoScalingReq)
+	if err != nil {
+		return errors.Wrap(err, "unable to describe activity from autoscaling group")
+	}
+
+	activityMap := make(map[clusterv1.ConditionType]as.Activity, 0)
+	for _, activity := range describeAutoScalingRes.Response.ActivitySet {
+
+		if a, ok := activityMap[clusterv1.ConditionType(*activity.ActivityType)]; ok {
+
+			t, _ := time.Parse("2006-01-02 15:04", *activity.EndTime)
+			t2, _ := time.Parse("2006-01-02 15:04", *a.EndTime)
+			if t.After(t2) {
+				activityMap[clusterv1.ConditionType(*activity.ActivityType)] = *activity
+			}
+		} else {
+			activityMap[clusterv1.ConditionType(*activity.ActivityType)] = *activity
+		}
+	}
+
+	for _, activity := range activityMap {
+		if *activity.StatusCode == Failed || *activity.StatusCode == PartiallySuccessful {
+			s.scope.Error(errors.New(*activity.StatusMessage), "auto-scaling")
+
+			conditions.MarkFalse(s.scope.ManagedMachinePool, clusterv1.ConditionType(*activity.ActivityType), *activity.Cause, infrastructurev1beta1.ConditionSeverityError, *activity.StatusMessage)
+		} else {
+			conditions.MarkTrue(s.scope.ManagedMachinePool, clusterv1.ConditionType(*activity.ActivityType))
+		}
+	}
+
+	for _, condition := range s.scope.ManagedMachinePool.Status.Conditions {
+		if condition.Status == Failed || condition.Status == PartiallySuccessful {
+			s.scope.Error(errors.New(condition.Message), "auto-scaling")
+		}
+	}
+
+	// Describe Auto Scaling Instances
 	describeInstancesReq := as.NewDescribeAutoScalingInstancesRequest()
 	describeInstancesReq.Filters = append(describeInstancesReq.Filters, &as.Filter{
 		Name: common.StringPtr("auto-scaling-group-id"),
@@ -171,7 +355,7 @@ func (s *NodePoolService) ReconcileNodePool() error {
 
 	describeInstancesRes, err := s.asClient.DescribeAutoScalingInstances(describeInstancesReq)
 	if err != nil {
-		return errors.Wrap(err, "unable to describe instaces from autoscaling group")
+		return errors.Wrap(err, "unable to describe instances from autoscaling group")
 	}
 
 	err = cache.InitZoneCache(s.cvmClient)
@@ -192,10 +376,16 @@ func (s *NodePoolService) ReconcileNodePool() error {
 	sort.Strings(providerList)
 	s.scope.ManagedMachinePool.Spec.ProviderIDList = providerList
 
-	s.scope.ManagedMachinePool.Status.Replicas = readyInstances
+	s.scope.ManagedMachinePool.Status.Replicas = int32(*existingNodePool.NodeCountSummary.AutoscalingAdded.Normal)
 
 	switch *existingNodePool.LifeState {
 	case "normal":
+		if *existingNodePool.NodeCountSummary.AutoscalingAdded.Normal != *existingNodePool.NodeCountSummary.AutoscalingAdded.Total ||
+			*existingNodePool.NodeCountSummary.AutoscalingAdded.Total != *existingNodePool.DesiredNodesNum {
+			s.scope.SetNotReady()
+			return nil
+		}
+		s.scope.Info("here", "summary", existingNodePool.NodeCountSummary)
 		s.scope.SetReady()
 	case "creating", "updating", "deleting", "deleted":
 		s.scope.SetNotReady()
@@ -263,6 +453,10 @@ func (s *NodePoolService) ReconcileNodePool() error {
 		s.scope.SetNotReady()
 	}
 	return nil
+}
+
+func timeCompare(i, j *as.Activity) bool {
+	return *i.EndTime < *j.EndTime
 }
 
 func (s *NodePoolService) DesiredSize() int64 {

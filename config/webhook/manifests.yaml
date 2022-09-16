@@ -1,4 +1,3 @@
-
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -12,14 +11,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1alpha4-tkecluster
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-tkecluster
   failurePolicy: Fail
   name: mtkecluster.kb.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1alpha4
+    - v1beta1
     operations:
     - CREATE
     - UPDATE
@@ -32,21 +31,20 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1alpha4-tkemanagedmachinepool
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-tkemanagedmachinepool
   failurePolicy: Fail
   name: mtkemanagedmachinepool.kb.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1alpha4
+    - v1beta1
     operations:
     - CREATE
     - UPDATE
     resources:
     - tkemanagedmachinepools
   sideEffects: None
-
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -60,14 +58,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1alpha4-tkecluster
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-tkecluster
   failurePolicy: Fail
   name: vtkecluster.kb.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1alpha4
+    - v1beta1
     operations:
     - CREATE
     - UPDATE
@@ -80,14 +78,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1alpha4-tkemanagedmachinepool
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-tkemanagedmachinepool
   failurePolicy: Fail
   name: vtkemanagedmachinepool.kb.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1alpha4
+    - v1beta1
     operations:
     - CREATE
     - UPDATE

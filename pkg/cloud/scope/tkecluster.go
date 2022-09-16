@@ -3,10 +3,10 @@ package scope
 import (
 	"context"
 
-	"github.com/TencentCloud/cluster-api-provider-tencent/api/v1alpha4"
+	"github.com/TencentCloud/cluster-api-provider-tencent/api/v1beta1"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -15,7 +15,7 @@ type TKEClusterScopeParams struct {
 	Log        logr.Logger
 	Client     client.Client
 	Cluster    *clusterv1.Cluster
-	TKECluster *v1alpha4.TKECluster
+	TKECluster *v1beta1.TKECluster
 }
 
 func NewTKEClusterScope(params TKEClusterScopeParams) (*TKEClusterScope, error) {
@@ -47,7 +47,7 @@ func NewTKEClusterScope(params TKEClusterScopeParams) (*TKEClusterScope, error) 
 type TKEClusterScope struct {
 	logr.Logger
 	Cluster     *clusterv1.Cluster
-	TKECluster  *v1alpha4.TKECluster
+	TKECluster  *v1beta1.TKECluster
 	Client      client.Client
 	patchHelper *patch.Helper
 }

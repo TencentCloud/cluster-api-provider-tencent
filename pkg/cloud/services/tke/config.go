@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	infrastructurev1alpha4 "github.com/TencentCloud/cluster-api-provider-tencent/api/v1alpha4"
+	infrastructurev1beta1 "github.com/TencentCloud/cluster-api-provider-tencent/api/v1beta1"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	tke "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tke/v20180525"
@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
-	"sigs.k8s.io/cluster-api/api/v1alpha4"
+	"sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/kubeconfig"
 	"sigs.k8s.io/cluster-api/util/secret"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,8 +59,8 @@ type KubeconfigSecret interface {
 type manager struct {
 	logr.Logger
 	client     client.Client
-	cluster    *v1alpha4.Cluster
-	tkeCluster *infrastructurev1alpha4.TKECluster
+	cluster    *v1beta1.Cluster
+	tkeCluster *infrastructurev1beta1.TKECluster
 	secret     *v1.Secret
 	kubeconfig []byte
 }
@@ -104,7 +104,7 @@ func (m *manager) UpdateSecret() error {
 }
 
 func (m *manager) CreateSecret() error {
-	controllerOwnerRef := *metav1.NewControllerRef(m.tkeCluster, infrastructurev1alpha4.GroupVersion.WithKind("TKECluster"))
+	controllerOwnerRef := *metav1.NewControllerRef(m.tkeCluster, infrastructurev1beta1.GroupVersion.WithKind("TKECluster"))
 
 	s := kubeconfig.GenerateSecretWithOwner(types.NamespacedName{
 		Namespace: m.cluster.Namespace,
