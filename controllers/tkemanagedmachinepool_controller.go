@@ -26,8 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
-	"sigs.k8s.io/cluster-api/exp/api/v1alpha4"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,7 +36,7 @@ import (
 	logger "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrastructurev1alpha4 "github.com/TencentCloud/cluster-api-provider-tencent/api/v1alpha4"
+	infrastructurev1beta1 "github.com/TencentCloud/cluster-api-provider-tencent/api/v1beta1"
 )
 
 // TKEManagedMachinePoolReconciler reconciles a TKEManagedMachinePool object
@@ -64,7 +64,7 @@ func (r *TKEManagedMachinePoolReconciler) Reconcile(ctx context.Context, req ctr
 	log := logger.FromContext(ctx)
 
 	// TODO(user): your logic here
-	tkePool := &infrastructurev1alpha4.TKEManagedMachinePool{}
+	tkePool := &infrastructurev1beta1.TKEManagedMachinePool{}
 	if err := r.Get(ctx, req.NamespacedName, tkePool); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -96,7 +96,7 @@ func (r *TKEManagedMachinePoolReconciler) Reconcile(ctx context.Context, req ctr
 		Namespace: tkePool.Namespace,
 		Name:      cluster.Spec.ControlPlaneRef.Name,
 	}
-	tkeCluster := &infrastructurev1alpha4.TKECluster{}
+	tkeCluster := &infrastructurev1beta1.TKECluster{}
 	if err := r.Client.Get(ctx, controlPlaneKey, tkeCluster); err != nil {
 		log.Info("Failed to retrieve ControlPlane from MachinePool")
 		return reconcile.Result{}, nil
@@ -104,7 +104,7 @@ func (r *TKEManagedMachinePoolReconciler) Reconcile(ctx context.Context, req ctr
 
 	if !tkeCluster.Status.Ready {
 		log.Info("cluster is not ready yet")
-		conditions.MarkFalse(tkePool, infrastructurev1alpha4.TKENodepoolReadyCondition, infrastructurev1alpha4.WaitingForTKEClusterReason, clusterv1.ConditionSeverityInfo, "")
+		conditions.MarkFalse(tkePool, infrastructurev1beta1.TKENodepoolReadyCondition, infrastructurev1beta1.WaitingForTKEClusterReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
 	}
 
@@ -139,7 +139,7 @@ func (r *TKEManagedMachinePoolReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 // getOwnerMachinePool returns the MachinePool object owning the current resource.
-func getOwnerMachinePool(ctx context.Context, c client.Client, obj metav1.ObjectMeta) (*v1alpha4.MachinePool, error) {
+func getOwnerMachinePool(ctx context.Context, c client.Client, obj metav1.ObjectMeta) (*v1beta1.MachinePool, error) {
 	for _, ref := range obj.OwnerReferences {
 		if ref.Kind != "MachinePool" {
 			continue
@@ -148,7 +148,7 @@ func getOwnerMachinePool(ctx context.Context, c client.Client, obj metav1.Object
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		if gv.Group == v1alpha4.GroupVersion.Group {
+		if gv.Group == v1beta1.GroupVersion.Group {
 			return getMachinePoolByName(ctx, c, obj.Namespace, ref.Name)
 		}
 	}
@@ -156,8 +156,8 @@ func getOwnerMachinePool(ctx context.Context, c client.Client, obj metav1.Object
 }
 
 // getMachinePoolByName finds and return a Machine object using the specified params.
-func getMachinePoolByName(ctx context.Context, c client.Client, namespace, name string) (*v1alpha4.MachinePool, error) {
-	m := &v1alpha4.MachinePool{}
+func getMachinePoolByName(ctx context.Context, c client.Client, namespace, name string) (*v1beta1.MachinePool, error) {
+	m := &v1beta1.MachinePool{}
 	key := client.ObjectKey{Name: name, Namespace: namespace}
 	if err := c.Get(ctx, key, m); err != nil {
 		return nil, err
@@ -168,14 +168,14 @@ func getMachinePoolByName(ctx context.Context, c client.Client, namespace, name 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TKEManagedMachinePoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&infrastructurev1alpha4.TKEManagedMachinePool{}).
+		For(&infrastructurev1beta1.TKEManagedMachinePool{}).
 		Complete(r)
 }
 
 func (r *TKEManagedMachinePoolReconciler) reconcileNormal(ctx context.Context, scope *scope.TKEManagedMachinePoolScope) (ctrl.Result, error) {
 	scope.Info("Reconciling TKEManagedMachinePool")
 
-	controllerutil.AddFinalizer(scope.ManagedMachinePool, infrastructurev1alpha4.TKEManagedMachinePoolFinalizer)
+	controllerutil.AddFinalizer(scope.ManagedMachinePool, infrastructurev1beta1.TKEManagedMachinePoolFinalizer)
 	if err := scope.PatchObject(); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -206,7 +206,7 @@ func (r *TKEManagedMachinePoolReconciler) reconcileDelete(ctx context.Context, s
 		return ctrl.Result{}, err
 	}
 
-	controllerutil.RemoveFinalizer(scope.ManagedMachinePool, infrastructurev1alpha4.TKEManagedMachinePoolFinalizer)
+	controllerutil.RemoveFinalizer(scope.ManagedMachinePool, infrastructurev1beta1.TKEManagedMachinePoolFinalizer)
 
 	return ctrl.Result{}, nil
 }

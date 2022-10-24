@@ -8,6 +8,12 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/regions"
 )
 
+const (
+	TencentCloudSecretID  = "TENCENTCLOUD_SECRET_ID"
+	TencentCloudSecretKey = "TENCENTCLOUD_SECRET_KEY"
+	LanguageCodeEnUs      = "en-US"
+)
+
 type Credentials struct {
 	Region      string
 	Credentials common.CredentialIface
@@ -15,14 +21,16 @@ type Credentials struct {
 }
 
 func NewCredentialsFromENV() *Credentials {
-	return &Credentials{
+	credentials := &Credentials{
 		Region: regions.Mumbai,
 		Credentials: common.NewCredential(
-			os.Getenv("TENCENTCLOUD_SECRET_ID"),
-			os.Getenv("TENCENTCLOUD_SECRET_KEY"),
+			os.Getenv(TencentCloudSecretID),
+			os.Getenv(TencentCloudSecretKey),
 		),
 		Profile: profile.NewClientProfile(),
 	}
+	credentials.Profile.Language = LanguageCodeEnUs
+	return credentials
 }
 
 func (c *Credentials) WithRegion(region string) *Credentials {

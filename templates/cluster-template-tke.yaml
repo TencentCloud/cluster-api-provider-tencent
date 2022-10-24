@@ -1,5 +1,5 @@
 ---
-apiVersion: cluster.x-k8s.io/v1alpha4
+apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
   name: "abc"
@@ -9,26 +9,31 @@ spec:
       cidrBlocks: ["192.168.0.0/16"]
   infrastructureRef:
     kind: TKECluster
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     name: "abc-tke-cluster"
   controlPlaneRef:
     kind: TKECluster
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     name: "abc-tke-cluster"
 ---
 kind: TKECluster
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 metadata:
   name: "abc-tke-cluster"
 spec:
   clusterName: foobar
   region: ap-mumbai
   clusterVersion: 1.17.11
-  vpcID: vpc-ouipya6w
-  imageID: img-pi0ii46r
+  vpcID: vpc-puzrdpge
+  osName: "ubuntu18.04.1x86_64"
+  endpointAccess:
+    public: true
+    securityGroup: sg-6xlemobu
+    private: true
+    subnetID: subnet-0z4b9jnp
 
 ---
-apiVersion: cluster.x-k8s.io/v1alpha4
+apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
 metadata:
   name: "abc-pool-0"
@@ -42,18 +47,20 @@ spec:
         dataSecretName: ""
       infrastructureRef:
         name: "abc-pool-0"
-        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: TKEManagedMachinePool
 
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: TKEManagedMachinePool
 metadata:
   name: "abc-pool-0"
 spec:
   maxSize: 5
-  minSize: 3
-  instanceType: S3.SMALL1
-  imageID: img-pi0ii46r
+  minSize: 2
+  instanceType: S3.2XLARGE16
+  osName: img-pi0ii46r
   securityGroups:
     - "sg-hnpkqgjk"
+  keyIDs:
+    - "skey-ii7rj3f9"

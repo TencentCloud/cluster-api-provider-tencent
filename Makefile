@@ -1,158 +1,234 @@
 # Image URL to use all building/pushing image targets
-#REPO ?= 'ccr.ccs.tencentyun.com/ccs-dev'
-REPO ?= ccr.ccs.tencentyun.com/chenky
-TAG ?= 0.0.4
-GENERIC_IMG=$(REPO)/clusterapi-generic-controller:$(TAG)
-CLUSTER_IMG=$(REPO)/tke-cluster-controller:$(TAG)
-MACHINE_IMG=$(REPO)/tke-machine-controller:$(TAG)
+IMG ?= gcr.io/spectro-dev-public/deepak/tencent-controller:latest
 
-CLUSTER-CONTROLLER=output/bin/tke-cluster-controller
-MACHINE-CONTROLLER=output/bin/tke-machine-controller
-GENERIC-CONTROLLER=output/bin/clusterapi-generic-controller
+RELEASE_IMG ?= gcr.io/spectro-dev-public/deepak/cluster-api-provider-tencent/tencent-controller
 
-GCFLAGS ?= -x -gcflags="-N -l"
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_K8S_VERSION = 1.22
 
-all: bin 
+TOOLS_DIR := hack/tools
+TOOLS_BIN_DIR := $(abspath $(TOOLS_DIR)/bin)
+GO_INSTALL = ./scripts/go_install.sh
 
-# Run tests
-test: generate fmt vet manifests
-	go test -v -tags=integration ./pkg/... ./cmd/... -coverprofile cover.out
+CONTROLLER_GEN_VER := v0.8.0
+CONTROLLER_GEN_BIN := controller-gen
+CONTROLLER_GEN := $(TOOLS_BIN_DIR)/$(CONTROLLER_GEN_BIN)-$(CONTROLLER_GEN_VER)
 
-tke-cluster-controller: ${CLUSTER-CONTROLLER}
+CONVERSION_GEN_VER := v0.22.2
+CONVERSION_GEN_BIN := conversion-gen
+CONVERSION_GEN := $(TOOLS_BIN_DIR)/$(CONVERSION_GEN_BIN)-$(CONVERSION_GEN_VER)
 
-tke-machine-controller: ${MACHINE-CONTROLLER}
+KUSTOMIZE_VER := v4.5.5
+KUSTOMIZE_BIN := kustomize
+KUSTOMIZE := $(TOOLS_BIN_DIR)/$(KUSTOMIZE_BIN)-$(KUSTOMIZE_VER)
 
-clusterapi-generic-controller: ${GENERIC-CONTROLLER}
+# Image URL to use all building/pushing image targets
+IMAGE_NAME := cluster-api-provider-tencent-controller
 
-${CLUSTER-CONTROLLER}:
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' ${GCFLAGS} -o $@ cmd/tke-cluster-controller/main.go	
+DEV_DIR := _build/dev
+MANIFEST_DIR=_build/manifests
+KUSTOMIZE := $(TOOLS_BIN_DIR)/kustomize
+BUILD_DIR :=_build
+MANIFEST_DIR=_build/manifests
+BUILD_DIR :=_build
+RELEASE_DIR := _build/release
 
-${MACHINE-CONTROLLER}:
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' ${GCFLAGS} -o $@ cmd/tke-machine-controller/main.go
+# Allow overriding the imagePullPolicy
+PULL_POLICY ?= Always
 
-${GENERIC-CONTROLLER}:
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' ${GCFLAGS} -o $@ cmd/clusterapi-generic-controller/main.go
+VERSION ?= spectro-v0.1.0-20220509
 
-bin: ${CLUSTER-CONTROLLER} ${MACHINE-CONTROLLER} ${GENERIC-CONTROLLER}
+# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(shell go env GOPATH)/bin
+else
+GOBIN=$(shell go env GOBIN)
+endif
 
-clean:
-	rm -f output/bin/* output/yaml/*
+# Setting SHELL to bash allows bash commands to be executed by recipes.
+# This is a requirement for 'setup-envtest.sh' in the test target.
+# Options are set to exit when a recipe line exits non-zero or a piped command fails.
+SHELL = /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
 
-# Build manager binary
-manager: generate fmt vet
-	go build -o bin/manager sigs.k8s.io/cluster-api-provider-gcp/cmd/manager
+.PHONY: all
+all: build
 
-# Build manager binary
-clusterctl: generate fmt vet
-	go build -o bin/clusterctl sigs.k8s.io/cluster-api-provider-gcp/cmd/clusterctl
+##@ General
 
-# Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet
-	go run ./cmd/manager/main.go
+# The help target prints out all targets with their descriptions organized
+# beneath their categories. The categories are represented by '##@' and the
+# target descriptions by '##'. The awk commands is responsible for reading the
+# entire set of makefiles included in this invocation, looking for lines of the
+# file as xyz: ## something, and then pretty-format the target and help. Then,
+# if there's a line with ##@ something, that gets pretty-printed as a category.
+# More info on the usage of ANSI control characters for terminal formatting:
+# https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters
+# More info on the awk command:
+# http://linuxcommand.org/lc3_adv_awk.php
 
-# Install CRDs into a cluster
-install: manifests
-	kubectl apply -f config/crds
+.PHONY: help
+help: ## Display this help.
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests
-	kubectl apply -f config/crds
-	kustomize build config/default | kubectl apply -f -
+##@ Development
 
-# Generate manifests e.g. CRD, RBAC etc.
-manifests:
-	go run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go all
+$(MANIFEST_DIR):
+	mkdir -p $(MANIFEST_DIR)
 
-# Run go fmt against code
-fmt:
-	go fmt ./pkg/... ./cmd/...
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
-# Run go vet against code
-vet:
-	go vet ./pkg/... ./cmd/...
+$(OVERRIDES_DIR):
+	@mkdir -p $(OVERRIDES_DIR)
 
-# Generate code
-generate:
-	go generate ./pkg/... ./cmd/...
+.PHONY: dev-manifests
+dev-manifests:
+	$(MAKE) manifests STAGE=dev MANIFEST_DIR=$(DEV_DIR) PULL_POLICY=Always IMAGE=$(IMG)
+	cp metadata.yaml $(DEV_DIR)/metadata.yaml
+	$(MAKE) templates OUTPUT_DIR=$(DEV_DIR)
 
+.PHONY: manifests
+manifests: $(CONTROLLER_GEN) $(MANIFEST_DIR) $(KUSTOMIZE) $(BUILD_DIR) ## Generate manifests e.g. CRD, RBAC etc.
+	set +x
+	rm -rf $(BUILD_DIR)/config
+	cp -R config $(BUILD_DIR)/config
+	sed -i'' -e 's@imagePullPolicy: .*@imagePullPolicy: '"$(PULL_POLICY)"'@' $(BUILD_DIR)/config/default/manager_pull_policy.yaml
+	sed -i'' -e 's@image: .*@image: '"$(IMAGE)"'@' $(BUILD_DIR)/config/default/manager_image_patch.yaml
+	"$(KUSTOMIZE)" build $(BUILD_DIR)/config/default > $(MANIFEST_DIR)/infrastructure-components.yaml
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-YAML_DIR=output/yaml
-GENERIC_CTL_YAML=output/yaml/clusterapi-generic-controller.yaml
-CLUSTER_CTL_YAML=output/yaml/tke-cluster-controller.yaml
-MACHINE_CTL_YAML=output/yaml/tke-machine-controller.yaml
-ALL_IN_ONE_YAML=output/yaml/clusterapi-controllers-all-in-one.yaml
+.PHONY: templates
+templates: ## Generate release templates
+	cp templates/cluster-template*.yaml $(OUTPUT_DIR)/	
 
-${YAML_DIR}:
-	mkdir -p $@
+.PHONY: generate
+generate: $(CONTROLLER_GEN) $(CONVERSION_GEN)
+	$(MAKE) generate-go
 
-# Build the docker image 
-docker-build-generic-controller: ${YAML_DIR}
-	docker build -f cmd/clusterapi-generic-controller/Dockerfile  . -t ${GENERIC_IMG}
+generate-go:
+	echo "Generate-Go Here"
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-docker-build-tke-cluster-controller: ${YAML_DIR}
-	docker build -f cmd/tke-cluster-controller/Dockerfile  . -t ${CLUSTER_IMG}
+	$(CONVERSION_GEN) \
+		--input-dirs=./api/v1alpha4 \
+		--extra-peer-dirs=github.com/TencentCloud/cluster-api-provider-tencent/api/v1alpha4 \
+		--build-tag=ignore_autogenerated_core_v1alpha4 \
+		--extra-peer-dirs=sigs.k8s.io/cluster-api/api/v1alpha4 \
+		--output-file-base=zz_generated.conversion $(GEN_OUTPUT_BASE) \
+		--go-header-file=./hack/boilerplate.go.txt
 
-docker-build-tke-machine-controller: ${YAML_DIR}
-	docker build -f cmd/tke-machine-controller/Dockerfile  . -t ${MACHINE_IMG}
+.PHONY: fmt
+fmt: ## Run go fmt against code.
+	go fmt ./...
 
-# Build the docker image from local biniaries in output/bin
-img-generic-controller: ${GENERIC-CONTROLLER}
-	docker build -f cmd/clusterapi-generic-controller/Dockerfile.local . -t ${GENERIC_IMG}
+.PHONY: vet
+vet: ## Run go vet against code.
+	go vet ./...
 
-img-cluster-controller: ${CLUSTER-CONTROLLER}
-	docker build -f cmd/tke-cluster-controller/Dockerfile.local . -t ${CLUSTER_IMG}
+.PHONY: test
+test: manifests generate fmt vet envtest ## Run tests.
+	KUBEBUILDER_ASSETS="/usr/local/kubebuilder/bin/" go test ./... -coverprofile cover.out
 
-img-machine-controller: ${MACHINE-CONTROLLER}
-	docker build -f cmd/tke-machine-controller/Dockerfile.local . -t ${MACHINE_IMG}
+##@ Build
 
-${GENERIC_CTL_YAML}: ${YAML_DIR}
-	sed -e 's@image: .*@image: '"${GENERIC_IMG}"'@' ./config/controller/clusterapi-generic-controller.yaml > $@
+.PHONY: build
+build: generate fmt vet ## Build manager binary.
+	go build -o bin/manager main.go
 
-${CLUSTER_CTL_YAML}: ${YAML_DIR}
-	sed -e 's@image: .*@image: '"${CLUSTER_IMG}"'@' ./config/controller/tke-cluster-controller.yaml > $@
+.PHONY: run
+run: manifests generate fmt vet ## Run a controller from your host.
+	go run ./main.go
 
-${MACHINE_CTL_YAML}: ${YAML_DIR}
-	sed -e 's@image: .*@image: '"${MACHINE_IMG}"'@' ./config/controller/tke-machine-controller.yaml > $@
-	
+.PHONY: docker-build
+docker-build: test ## Build docker image with the manager.
+	docker build -t ${IMG} .
 
-yaml: 
-	cp config/controller/tencent-cloud-api-secret.yaml  ${YAML_DIR}/
-	make ${GENERIC_CTL_YAML}
-	make ${CLUSTER_CTL_YAML}
-	make ${MACHINE_CTL_YAML}
-	cat config/rbac/rbac_role.yaml >> ${ALL_IN_ONE_YAML}
-	echo "---" >> ${ALL_IN_ONE_YAML}
-	cat config/rbac/rbac_role_binding.yaml >> ${ALL_IN_ONE_YAML}
-	echo "---" >> ${ALL_IN_ONE_YAML}
-	cat ${GENERIC_CTL_YAML}	>> ${ALL_IN_ONE_YAML}
-	echo "---" >> ${ALL_IN_ONE_YAML}
-	cat ${CLUSTER_CTL_YAML} >> ${ALL_IN_ONE_YAML}
-	echo "---" >> ${ALL_IN_ONE_YAML}
-	cat ${MACHINE_CTL_YAML} >> ${ALL_IN_ONE_YAML}
+.PHONY: docker-push
+docker-push: ## Push docker image with the manager.
+	docker push ${IMG}
 
+##@ Deployment
 
-img-by-docker: docker-build-generic-controller docker-build-tke-cluster-controller docker-build-tke-machine-controller yaml
+ifndef ignore-not-found
+  ignore-not-found = false
+endif
 
-img: img-generic-controller img-cluster-controller img-machine-controller
+.PHONY: install
+install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
-push:
-	docker push ${GENERIC_IMG}
-	docker push ${CLUSTER_IMG}
-	docker push ${MACHINE_IMG}
+.PHONY: uninstall
+uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
-help:
-	@echo '## build all binaries of controllers'
-	@echo 'make bin'
-	@echo 'make bin/clusterapi-generic-controller'
-	@echo 'make bin/tke-cluster-controller'
-	@echo 'make bin/tke-machine-controller'
-	@echo '## build all docker images from local binaries'
-	@echo 'REPO=ccr.ccs.tencentyun.com/ccs-dev TAG=0.2 make img'
-	@echo 'make img-cluster-controller'
-	@echo 'make docker-build-generic-controller'
-	@echo 'make docker-build-tke-cluster-controller'
-	@echo 'make docker-build-tke-machine-controller'
-	@echo '## push images'
-	@echo 'REPO=ccr.ccs.tencentyun.com/ccs-dev TAG=0.2 make push'
+.PHONY: deploy
+deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
-.PHONY : help clean controllers all bin img push img-by-docker img-generic-controller img-cluster-controller img-machine-controller  tke-cluster-controller tke-machine-controller clusterapi-generic-controller docker-build-generic-controller docker-build-tke-cluster-controller docker-build-tke-machine-controller
+.PHONY: undeploy
+undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+
+# CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
+# .PHONY: controller-gen
+# controller-gen: ## Download controller-gen locally if necessary.
+# 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.8.0)
+
+# CONVERSION_GEN := $(shell pwd)/bin/conversion-gen
+# .PHONY: conversion-gen
+# conversion-gen: ##Download conversion-gen locally if necessary.
+# 	$(call go-get-tool,$(CONVERSION_GEN),k8s.io/code-generator/cmd/conversion-gen@v0.22.2)
+
+$(CONVERSION_GEN): ## Build conversion-gen.
+	GOBIN=$(TOOLS_BIN_DIR) $(GO_INSTALL) k8s.io/code-generator/cmd/conversion-gen $(CONVERSION_GEN_BIN) $(CONVERSION_GEN_VER)
+
+$(CONTROLLER_GEN): ## Build controller-gen from tools folder.
+	GOBIN=$(TOOLS_BIN_DIR) $(GO_INSTALL) sigs.k8s.io/controller-tools/cmd/controller-gen $(CONTROLLER_GEN_BIN) $(CONTROLLER_GEN_VER)
+
+$(KUSTOMIZE): ## Build kustomize from tools folder.
+	GOBIN=$(TOOLS_BIN_DIR) $(GO_INSTALL) sigs.k8s.io/kustomize/kustomize/v4 $(KUSTOMIZE_BIN) $(KUSTOMIZE_VER)	
+
+# KUSTOMIZE = $(shell pwd)/bin/kustomize
+# .PHONY: kustomize
+# kustomize: ## Download kustomize locally if necessary.
+# 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
+
+ENVTEST = $(shell pwd)/bin/setup-envtest
+.PHONY: envtest
+envtest: ## Download envtest-setup locally if necessary.
+	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+
+# go-get-tool will 'go get' any package $2 and install it to $1.
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+define go-get-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
+
+.PHONY: release-manifests
+release-manifests: test
+	$(MAKE) manifests STAGE=release MANIFEST_DIR=$(RELEASE_DIR) PULL_POLICY=IfNotPresent IMAGE=$(RELEASE_IMG):$(VERSION)
+	cp metadata.yaml $(RELEASE_DIR)/metadata.yaml
+	$(MAKE) templates OUTPUT_DIR=$(RELEASE_DIR)
+
+.PHONY: release-overrides
+release-overrides:
+	$(MAKE) manifests STAGE=release MANIFEST_DIR=$(OVERRIDES_DIR) PULL_POLICY=IfNotPresent IMAGE=$(RELEASE_IMG):$(VERSION)
+
+.PHONY: release-build
+release-build:
+	IMG="$(RELEASE_IMG)" $(MAKE) docker-build
+	IMG="$(RELEASE_IMG)" $(MAKE) docker-push
+
+.PHONY: release-deploy
+release-deploy: release-build
+	IMG="$(RELEASE_IMG)" $(MAKE) deploy
